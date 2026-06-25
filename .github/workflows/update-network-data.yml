@@ -15,22 +15,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download data-raw-table
+      - name: Download all-network.txt with wget (with retries)
         run: |
-          # Скачиваем файл с помощью curl
-          curl -sSfL https://bgp.nsrc.org/REN/.combined/data-raw-table -o data-raw-table.txt
-          echo "✅ File downloaded successfully."
+          # Пытаемся скачать до 5 раз с задержкой
+          for i in 1 2 3 4 5; do
+            echo "🔄 Attempt $i/5 to download with wget..."
+            # -N: скачивать только если файл на сервере новее
+            # -O: сохранить под указанным именем
+            if wget -N -O all-network.txt https://bgp.nsrc.org/REN/.combined/data-raw-table; then
+              echo "✅ File downloaded successfully!"
+              exit 0
+            fi
+            echo "⚠️ Attempt $i failed, waiting 15 seconds..."
+            sleep 15
+          done
+          echo "❌ All 5 attempts failed. Please check the server status."
+          exit 1
 
       - name: Check for changes and commit
         run: |
           # Проверяем, существует ли файл
-          if [ ! -f data-raw-table.txt ]; then
-            echo "ℹ️ File does not exist, creating..."
-            curl -sSfL https://bgp.nsrc.org/REN/.combined/data-raw-table -o data-raw-table.txt
+          if [ ! -f all-network.txt ]; then
+            echo "ℹ️ File does not exist. Exiting."
+            exit 1
           fi
 
           # Проверяем, изменился ли файл
-          if git diff --quiet data-raw-table.txt; then
+          if git diff --quiet all-network.txt; then
             echo "ℹ️ No changes detected. Nothing to commit."
             exit 0
           fi
@@ -40,9 +51,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Добавляем, коммитим и пушим изменения
-          git add data-raw-table.txt
-          git commit -m "Automated update: data-raw-table [skip ci]"
+          git add all-network.txt
+          git commit -m "Automated update: all-network.txt [skip ci]"
           git push
 
           echo "✅ Changes committed and pushed."
-          
