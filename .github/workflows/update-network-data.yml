@@ -1,7 +1,7 @@
 name: Update Network Data
 
 on:
-  workflow_dispatch:   # Позволяет запускать вручную
+  workflow_dispatch:   
   schedule:
     - cron: '0 6 * * *'  # Автоматический запуск каждый день в 6:00 UTC
 
@@ -9,7 +9,7 @@ jobs:
   update-data:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # Даёт права на запись в репозиторий
+      contents: write   
 
     steps:
       - name: Checkout repository
@@ -23,6 +23,12 @@ jobs:
 
       - name: Check for changes and commit
         run: |
+          # Проверяем, существует ли файл
+          if [ ! -f data-raw-table.txt ]; then
+            echo "ℹ️ File does not exist, creating..."
+            curl -sSfL https://bgp.nsrc.org/REN/.combined/data-raw-table -o data-raw-table.txt
+          fi
+
           # Проверяем, изменился ли файл
           if git diff --quiet data-raw-table.txt; then
             echo "ℹ️ No changes detected. Nothing to commit."
