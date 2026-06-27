@@ -15,42 +15,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download all-network.txt with curl
+      - name: Download network data
         run: |
-          # Скачиваем файл с помощью curl
-          if curl -L -o all-network.txt https://bgp.nsrc.org/REN/.combined/data-raw-table; then
-            echo "✅ File downloaded successfully!"
-            # Проверяем размер файла
-            FILE_SIZE=$(wc -c < all-network.txt)
-            echo "📊 File size: $FILE_SIZE bytes"
-            
-            if [ "$FILE_SIZE" -lt 100 ]; then
-              echo "⚠️ File too small, might be empty or error page"
-              cat all-network.txt
-              exit 1
-            fi
-          else
-            echo "❌ Download failed"
-            exit 1
-          fi
+          curl -L -o all-network.txt https://bgp.nsrc.org/REN/.combined/data-raw-table
+          echo "✅ File downloaded: $(wc -c < all-network.txt) bytes"
 
-      - name: Check for changes and commit
+      - name: Commit and push (force)
         run: |
-          if [ ! -f all-network.txt ]; then
-            echo "ℹ️ File does not exist. Exiting."
-            exit 1
-          fi
-
-          if git diff --quiet all-network.txt; then
-            echo "ℹ️ No changes detected. Nothing to commit."
-            exit 0
-          fi
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add all-network.txt
-          git commit -m "Automated update: all-network.txt [skip ci]"
+          
+          # Всегда добавляем файл
+          git add -f all-network.txt
+          
+          # Всегда создаем коммит (даже если нет изменений)
+          git commit -m "🔄 Network data update [$(date '+%Y-%m-%d %H:%M:%S')] [skip ci]" || true
+          
+          # Пушим
           git push
-
-          echo "✅ Changes committed and pushed."
