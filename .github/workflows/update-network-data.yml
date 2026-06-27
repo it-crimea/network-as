@@ -3,7 +3,7 @@ name: Update Network Data
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 * * * *'
 
 jobs:
   update-data:
@@ -15,21 +15,43 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download network data
+      - name: Check if update needed
+        id: check
+        run: |
+          if [ ! -f all-network.txt ]; then
+            echo "need_update=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          REMOTE_ETAG=$(curl -sI https://bgp.nsrc.org/REN/.combined/data-raw-table | grep -i etag | awk -F'"' '{print $2}')
+          
+          if [ -z "$REMOTE_ETAG" ]; then
+            echo "need_update=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          if [ -f ".etag" ]; then
+            LOCAL_ETAG=$(cat .etag)
+            if [ "$REMOTE_ETAG" == "$LOCAL_ETAG" ]; then
+              echo "need_update=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+          
+          echo "need_update=true" >> $GITHUB_OUTPUT
+
+      - name: Download file
+        if: steps.check.outputs.need_update == 'true'
         run: |
           curl -L -o all-network.txt https://bgp.nsrc.org/REN/.combined/data-raw-table
-          echo "✅ File downloaded: $(wc -c < all-network.txt) bytes"
+          curl -sI https://bgp.nsrc.org/REN/.combined/data-raw-table | grep -i etag | awk -F'"' '{print $2}' > .etag
 
-      - name: Commit and push (force)
+      - name: Commit and push
+        if: steps.check.outputs.need_update == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Всегда добавляем файл
-          git add -f all-network.txt
-          
-          # Всегда создаем коммит (даже если нет изменений)
-          git commit -m "🔄 Network data update [$(date '+%Y-%m-%d %H:%M:%S')] [skip ci]" || true
-          
-          # Пушим
+          git add all-network.txt .etag
+          git commit -m "Update network data [skip ci]" || echo "No changes"
           git push
