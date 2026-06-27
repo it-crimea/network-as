@@ -15,6 +15,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Create etag directory if not exists
+        run: |
+          mkdir -p etag
+
       - name: Check if update needed
         id: check
         run: |
@@ -43,7 +47,6 @@ jobs:
       - name: Download and filter IPv4 only
         if: steps.check.outputs.need_update == 'true'
         run: |
-          mkdir -p etag
           curl -L -o cidr.txt https://core.telegram.org/resources/cidr.txt
           grep -v ':' cidr.txt > telegram.list
           rm cidr.txt
