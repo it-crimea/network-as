@@ -1,0 +1,59 @@
+name: Update Telegram CIDR Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if update needed
+        id: check
+        run: |
+          if [ ! -f telegram.list ]; then
+            echo "need_update=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          REMOTE_ETAG=$(curl -sI https://core.telegram.org/resources/cidr.txt | grep -i etag | awk -F'"' '{print $2}')
+          
+          if [ -z "$REMOTE_ETAG" ]; then
+            echo "need_update=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          if [ -f ".etag" ]; then
+            LOCAL_ETAG=$(cat .etag)
+            if [ "$REMOTE_ETAG" == "$LOCAL_ETAG" ]; then
+              echo "need_update=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+          
+          echo "need_update=true" >> $GITHUB_OUTPUT
+
+      - name: Download and filter IPv4 only
+        if: steps.check.outputs.need_update == 'true'
+        run: |
+          curl -L -o cidr.txt https://core.telegram.org/resources/cidr.txt
+          grep -v ':' cidr.txt > telegram.list
+          rm cidr.txt
+          curl -sI https://core.telegram.org/resources/cidr.txt | grep -i etag | awk -F'"' '{print $2}' > .etag
+
+      - name: Commit and push
+        if: steps.check.outputs.need_update == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add telegram.list .etag
+          git commit -m "Update Telegram network data" || echo "No changes"
+          git push
