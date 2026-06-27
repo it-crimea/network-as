@@ -30,8 +30,8 @@ jobs:
             exit 0
           fi
           
-          if [ -f ".etag" ]; then
-            LOCAL_ETAG=$(cat .etag)
+          if [ -f ".etag-telegram" ]; then
+            LOCAL_ETAG=$(cat .etag-telegram)
             if [ "$REMOTE_ETAG" == "$LOCAL_ETAG" ]; then
               echo "need_update=false" >> $GITHUB_OUTPUT
               exit 0
@@ -46,7 +46,7 @@ jobs:
           curl -L -o cidr.txt https://core.telegram.org/resources/cidr.txt
           grep -v ':' cidr.txt > telegram.list
           rm cidr.txt
-          curl -sI https://core.telegram.org/resources/cidr.txt | grep -i etag | awk -F'"' '{print $2}' > .etag
+          curl -sI https://core.telegram.org/resources/cidr.txt | grep -i etag | awk -F'"' '{print $2}' > .etag-telegram
 
       - name: Commit and push
         if: steps.check.outputs.need_update == 'true'
@@ -54,6 +54,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add telegram.list .etag
+          git add telegram.list .etag-telegram
           git commit -m "Update Telegram network data" || echo "No changes"
           git push
