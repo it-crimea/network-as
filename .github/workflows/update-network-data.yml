@@ -1,56 +1,54 @@
 name: Update Network Data
 
 on:
-  workflow_dispatch:   # Позволяет запускать вручную
+  workflow_dispatch:
   schedule:
-    - cron: '0 6 * * *'  # Автоматический запуск каждый день в 6:00 UTC
+    - cron: '0 6 * * *'
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # Даёт права на запись в репозиторий
+      contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download all-network.txt with wget (with retries)
+      - name: Download all-network.txt with curl
         run: |
-          # Пытаемся скачать до 5 раз с задержкой
-          for i in 1 2 3 4 5; do
-            echo "🔄 Attempt $i/5 to download with wget..."
-            # -N: скачивать только если файл на сервере новее
-            # -O: сохранить под указанным именем
-            if wget -N -O all-network.txt https://bgp.nsrc.org/REN/.combined/data-raw-table; then
-              echo "✅ File downloaded successfully!"
-              exit 0
+          # Скачиваем файл с помощью curl
+          if curl -L -o all-network.txt https://bgp.nsrc.org/REN/.combined/data-raw-table; then
+            echo "✅ File downloaded successfully!"
+            # Проверяем размер файла
+            FILE_SIZE=$(wc -c < all-network.txt)
+            echo "📊 File size: $FILE_SIZE bytes"
+            
+            if [ "$FILE_SIZE" -lt 100 ]; then
+              echo "⚠️ File too small, might be empty or error page"
+              cat all-network.txt
+              exit 1
             fi
-            echo "⚠️ Attempt $i failed, waiting 15 seconds..."
-            sleep 15
-          done
-          echo "❌ All 5 attempts failed. Please check the server status."
-          exit 1
+          else
+            echo "❌ Download failed"
+            exit 1
+          fi
 
       - name: Check for changes and commit
         run: |
-          # Проверяем, существует ли файл
           if [ ! -f all-network.txt ]; then
             echo "ℹ️ File does not exist. Exiting."
             exit 1
           fi
 
-          # Проверяем, изменился ли файл
           if git diff --quiet all-network.txt; then
             echo "ℹ️ No changes detected. Nothing to commit."
             exit 0
           fi
 
-          # Настраиваем git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Добавляем, коммитим и пушим изменения
           git add all-network.txt
           git commit -m "Automated update: all-network.txt [skip ci]"
           git push
