@@ -30,8 +30,8 @@ jobs:
             exit 0
           fi
           
-          if [ -f ".github/workflows/.etag-telegram" ]; then
-            LOCAL_ETAG=$(cat .github/workflows/.etag-telegram)
+          if [ -f "etag/.etag-telegram" ]; then
+            LOCAL_ETAG=$(cat etag/.etag-telegram)
             if [ "$REMOTE_ETAG" == "$LOCAL_ETAG" ]; then
               echo "need_update=false" >> $GITHUB_OUTPUT
               exit 0
@@ -54,6 +54,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add telegram.list .github/workflows/.etag-telegram
+          git add telegram.list etag/.etag-telegram
           git commit -m "Update Telegram network data " || echo "No changes"
           git push
