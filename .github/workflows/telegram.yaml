@@ -44,11 +44,17 @@ jobs:
           
           echo "need_update=true" >> $GITHUB_OUTPUT
 
-      - name: Download and filter IPv4 only
+      - name: Download and convert to MikroTik format
         if: steps.check.outputs.need_update == 'true'
         run: |
           curl -L -o cidr.txt https://core.telegram.org/resources/cidr.txt
-          grep -v ':' cidr.txt > telegram.list
+          
+          # Filter IPv4 only and convert to MikroTik format
+          # Format: /ip firewall address-list add list=Telegram address=IP/CIDR
+          grep -v ':' cidr.txt | while read ip; do
+            echo "/ip firewall address-list add list=Telegram address=$ip"
+          done > telegram.list
+          
           rm cidr.txt
           curl -sI https://core.telegram.org/resources/cidr.txt | grep -i etag | awk -F'"' '{print $2}' > etag/.etag-telegram
 
@@ -59,5 +65,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           git add telegram.list etag/.etag-telegram
-          git commit -m "Update Telegram network data" || echo "No changes"
+          git commit -m "Update Telegram network data (MikroTik format)" || echo "No changes"
           git push
