@@ -61,4 +61,6 @@ jobs:
           git add telegram.list etag/.etag-telegram
           git commit -m "Update Telegram network data" || echo "No changes"
           git push
+
+          git push
 переделай что бы файл  telegram.list был в стиле mikrotik console
