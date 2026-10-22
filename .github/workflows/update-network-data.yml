@@ -7,13 +7,13 @@ on:
 
 jobs:
   update-data:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # фиксируем версию до миграции на Ubuntu 26
     permissions:
       contents: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5   # Node.js 24, устраняет предупреждение
 
       - name: Create etag directory if not exists
         run: |
@@ -47,7 +47,7 @@ jobs:
       - name: Download file
         if: steps.check.outputs.need_update == 'true'
         run: |
-          curl -L -o all-network.txt https://bgp.nsrc.org/REN/.combined/data-raw-table
+          curl -fL -o all-network.txt https://bgp.nsrc.org/REN/.combined/data-raw-table
           curl -sI https://bgp.nsrc.org/REN/.combined/data-raw-table | grep -i etag | awk -F'"' '{print $2}' > etag/.etag-network
 
       - name: Commit and push
