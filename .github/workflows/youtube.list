@@ -1,0 +1,67 @@
+name: Update YouTube CIDR Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create etag directory if not exists
+        run: mkdir -p etag
+
+      - name: Check if update needed
+        id: check
+        run: |
+          URL="https://raw.githubusercontent.com/touhidurrr/iplist-youtube/main/lists/cidr4.txt"
+
+          if [ ! -f youtube.list ]; then
+            echo "need_update=true" >> $GITHUB_OUTPUT
+            echo "youtube.list отсутствует — обновляем."
+            exit 0
+          fi
+
+          REMOTE_ETAG=$(curl -sI "$URL" | grep -i '^etag:' | awk -F'"' '{print $2}' | tr -d '\r')
+
+          if [ -z "$REMOTE_ETAG" ]; then
+            echo "need_update=true" >> $GITHUB_OUTPUT
+            echo "ETag не получен — обновляем на всякий случай."
+            exit 0
+          fi
+
+          if [ -f "etag/.etag-youtube" ]; then
+            LOCAL_ETAG=$(cat etag/.etag-youtube)
+            if [ "$REMOTE_ETAG" == "$LOCAL_ETAG" ]; then
+              echo "need_update=false" >> $GITHUB_OUTPUT
+              echo "ETag совпадает ($REMOTE_ETAG) — пропускаем."
+              exit 0
+            fi
+          fi
+
+          echo "need_update=true" >> $GITHUB_OUTPUT
+          echo "ETag изменился: '$LOCAL_ETAG' -> '$REMOTE_ETAG'"
+
+      - name: Download YouTube CIDR list
+        if: steps.check.outputs.need_update == 'true'
+        run: |
+          URL="https://raw.githubusercontent.com/touhidurrr/iplist-youtube/main/lists/cidr4.txt"
+          curl -L -o youtube.list "$URL"
+          curl -sI "$URL" | grep -i '^etag:' | awk -F'"' '{print $2}' | tr -d '\r' > etag/.etag-youtube
+
+      - name: Commit and push
+        if: steps.check.outputs.need_update == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add youtube.list etag/.etag-youtube
+          git commit -m "Update YouTube CIDR data" || echo "No changes"
+          git push
