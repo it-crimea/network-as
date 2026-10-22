@@ -7,13 +7,13 @@ on:
 
 jobs:
   update-data:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # явно фиксируем версию до миграции на Ubuntu 26
     permissions:
       contents: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5   # Node.js 24, устраняет предупреждение
 
       - name: Create etag directory if not exists
         run: mkdir -p etag
@@ -53,7 +53,7 @@ jobs:
         if: steps.check.outputs.need_update == 'true'
         run: |
           URL="https://raw.githubusercontent.com/touhidurrr/iplist-youtube/main/lists/cidr4.txt"
-          curl -L -o youtube.list "$URL"
+          curl -fL -o youtube.list "$URL"
           curl -sI "$URL" | grep -i '^etag:' | awk -F'"' '{print $2}' | tr -d '\r' > etag/.etag-youtube
 
       - name: Commit and push
